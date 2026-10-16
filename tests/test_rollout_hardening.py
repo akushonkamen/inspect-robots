@@ -536,6 +536,57 @@ def test_modified_action_records_approval_event_without_detail() -> None:
     assert approvals[0].data["detail"] is None
 
 
+class _CollisionApprover:
+    """Holds the first action and records why, as a collision approver would."""
+
+    def __init__(self) -> None:
+        self.held = False
+
+    def review(self, action: Action, store: dict[str, object]) -> Action:
+        if self.held:
+            return action
+        self.held = True
+        meta = {
+            **dict(action.meta),
+            "collision_blocked": True,
+            "collision_detail": "left_gripper-table@3/8",
+            "collision_pending": False,
+        }
+        return replace(action, data=np.asarray(action.data, dtype=np.float64) * 0.0, meta=meta)
+
+
+def test_third_party_approver_reasons_reach_approval_detail() -> None:
+    record = _run(ScriptedPolicy(), CubePickEmbodiment(), approver=_CollisionApprover())
+    approvals = [e for e in record.events if e.kind == "approval"]
+    assert approvals
+    # Boolean flags contribute their key name, string values render as
+    # ``key=value``, and falsy keys are not reasons.
+    assert approvals[0].data["detail"] == (
+        "collision_blocked, collision_detail=left_gripper-table@3/8"
+    )
+
+
+class _MetaStampingPolicy(ScriptedPolicy):
+    """Stamps a policy-owned meta key, as the agent plugin's ``chunk_final`` does."""
+
+    def act(self, observation: Observation) -> ActionChunk:
+        chunk = super().act(observation)
+        stamped = [replace(a, meta={**a.meta, "chunk_final": True}) for a in chunk.actions]
+        return replace(chunk, actions=stamped)
+
+
+def test_approval_detail_excludes_policy_forwarded_meta() -> None:
+    # The approver forwards the policy's meta verbatim (as the built-ins do), so
+    # only keys it *newly* sets may appear in the detail — never policy keys
+    # like ``chunk_final``, even though the approver copies them forward.
+    record = _run(_MetaStampingPolicy(), CubePickEmbodiment(), approver=_CollisionApprover())
+    approvals = [e for e in record.events if e.kind == "approval"]
+    assert approvals
+    assert approvals[0].data["detail"] == (
+        "collision_blocked, collision_detail=left_gripper-table@3/8"
+    )
+
+
 def test_rollout_surfaces_approvals_in_observation_extra() -> None:
     class _ObsCapturingPolicy:
         def __init__(self) -> None:

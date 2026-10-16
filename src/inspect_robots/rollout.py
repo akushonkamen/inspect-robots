@@ -449,6 +449,16 @@ def rollout(
                 raise _record_failure(record, SafetyAbort(str(exc)), t) from exc
             if reviewed is not action:
                 flags = [k for k in ("clamped", "delta_clamped") if reviewed.meta.get(k)]
+                # A third-party approver may record its reason under other meta
+                # keys (e.g. a collision approver's ``collision_detail``). Report
+                # the keys it *newly* sets to a truthy value relative to the
+                # action it reviewed — approvers forward the policy's meta
+                # verbatim, so policy-written keys stay out of the detail.
+                flags += [
+                    f"{k}={v}" if isinstance(v, str) else k
+                    for k, v in reviewed.meta.items()
+                    if v and k not in ("clamped", "delta_clamped") and not action.meta.get(k)
+                ]
                 detail = ", ".join(flags) or None
                 record.events.append(approval_event(t, modified=True, detail=detail))
                 store.setdefault(_APPROVALS_KEY, []).append({"t": t, "detail": detail})
