@@ -37,7 +37,8 @@ single-word instructions use the explicit ``run --instruction`` form.
 Layout: this module owns the parser (``build_parser``), the dispatch
 (``main``), and the instruction sugar; each subcommand's handler and its
 helpers live in the private ``inspect_robots._cli_commands`` package. Every
-name this module has historically exposed is re-exported from here unchanged,
+name this module defined before is re-exported from here unchanged except the
+private ``_format_metric`` helper, which now lives only in the new package,
 and moved code reaches the collaborators tests patch (``claim_devices``,
 ``_resolve_components``, ``render_html``, ``_print_degraded``, and the
 ``view --serve`` cluster) through this module's namespace at call time, so
