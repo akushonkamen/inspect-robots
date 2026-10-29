@@ -2307,6 +2307,7 @@ def test_eval_emits_user_warning_for_soft_frame_mismatch(tmp_path: Path) -> None
     from dataclasses import replace as dc_replace
 
     space = ScriptedPolicy().info.action_space
+    assert space.semantics is not None
     camera_policy_info = dc_replace(
         ScriptedPolicy().info,
         action_space=dc_replace(
