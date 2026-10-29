@@ -2329,7 +2329,9 @@ def test_eval_emits_user_warning_for_soft_frame_mismatch(tmp_path: Path) -> None
     with warnings.catch_warnings(record=True) as emitted:
         warnings.simplefilter("always")
         (log,) = eval(task, CameraFramePolicy(), CubePickEmbodiment(), log_dir=str(tmp_path))
-    frame_warnings = [w for w in emitted if issubclass(w.category, UserWarning) and "frame" in str(w.message)]
+    frame_warnings = [
+        w for w in emitted if issubclass(w.category, UserWarning) and "frame" in str(w.message)
+    ]
     assert frame_warnings, f"expected a frame UserWarning, got {[str(w.message) for w in emitted]}"
     assert "policy frame 'camera' != embodiment 'world'" in str(frame_warnings[0].message)
     # Soft warnings still permit the rollout.
