@@ -2337,3 +2337,41 @@ def test_eval_emits_user_warning_for_soft_frame_mismatch(tmp_path: Path) -> None
     assert "policy frame 'camera' != embodiment 'world'" in str(frame_warnings[0].message)
     # Soft warnings still permit the rollout.
     assert log.status == "success"
+
+
+def test_eval_emits_one_user_warning_per_soft_issue(tmp_path: Path) -> None:
+    """Multiple soft compatibility issues must each surface as their own
+    UserWarning (frame + gripper), locking in the per-issue loop."""
+    space = ScriptedPolicy().info.action_space
+    assert space.semantics is not None
+    mismatched_info = replace(
+        ScriptedPolicy().info,
+        action_space=replace(
+            space,
+            semantics=replace(space.semantics, frame="camera", gripper="binary"),
+        ),
+    )
+
+    class MismatchedPolicy(ScriptedPolicy):
+        def __init__(self) -> None:
+            super().__init__()
+            self.info = mismatched_info
+
+    task = Task(
+        name="multi-warning",
+        scenes=[Scene(id="s0", instruction="reach")],
+        scorer=success_at_end(),
+        max_steps=1,
+    )
+    with warnings.catch_warnings(record=True) as emitted:
+        warnings.simplefilter("always")
+        (log,) = eval(task, MismatchedPolicy(), CubePickEmbodiment(), log_dir=str(tmp_path))
+    compat_warnings = [
+        w
+        for w in emitted
+        if issubclass(w.category, UserWarning) and "compatibility warning [" in str(w.message)
+    ]
+    codes = {str(w.message).split("[", 1)[1].split("]", 1)[0] for w in compat_warnings}
+    assert codes == {"frame", "gripper"}, f"expected frame+gripper warnings, got {codes}"
+    # Soft warnings still permit the rollout.
+    assert log.status == "success"

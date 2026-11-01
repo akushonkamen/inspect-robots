@@ -580,7 +580,7 @@ def _run_eval(
         warnings.warn(
             f"compatibility warning [{issue.code}]: {issue.message}",
             UserWarning,
-            stacklevel=2,
+            stacklevel=3,  # point at the caller's eval(...) call, like the survivor warning
         )
     task_envelope = task.resolve_envelope(embodiment.info.control_hz)
 
